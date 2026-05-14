@@ -11,6 +11,10 @@ with severity-based routing and persistent memory to avoid re-reviewing PRs.
 
 ![Autonomous AI Code Review Agent](../docs/n8n_code_review_agent_flow.svg)
 
+## Live Canvas Screenshot
+
+![N8N workflow canvas](../docs/n8n-workflow-screenshot.png)
+
 ## Workflow Flow
 
 Schedule Trigger (every 30 min)
