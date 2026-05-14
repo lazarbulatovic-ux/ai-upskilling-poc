@@ -1,7 +1,627 @@
 {
-  "_note": "Export your workflow from N8N (Workflows -> Download) and replace this file.",
-  "name": "Autonomous AI Code Review Agent",
-  "nodes": [],
-  "connections": {},
-  "active": false
+  "name": "🤖 Autonomous AI Code Review Agent — Final",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "ffb7ae0a-0474-4612-95ea-74873dffb092",
+      "name": "⏰ Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2448,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/pulls",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "n8n-code-review-agent"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"
+            }
+          ]
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "state",
+              "value": "open"
+            },
+            {
+              "name": "per_page",
+              "value": "10"
+            }
+          ]
+        }
+      },
+      "id": "80e3cc47-fc8f-4fbf-828f-1be0c553ea4e",
+      "name": "📡 Fetch Open Pull Requests",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        -2240,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clear cache for testing\nconst stored = $getWorkflowStaticData('global');\nstored.reviewedPrIds = [];\n\nconst prs = $input.all();\nlet reviewedIds = [];\n\nconst allPRs = [];\n\n// Handle all possible GitHub response formats\nfor (const item of prs) {\n  const data = item.json;\n  if (!data) continue;\n  \n  // Format 1: direct PR object\n  if (data.number && data.html_url) {\n    allPRs.push(data);\n    continue;\n  }\n  \n  // Format 2: wrapped {0: pr1, 1: pr2, ...}\n  for (const val of Object.values(data)) {\n    if (val && typeof val === 'object' && val.number && val.html_url) {\n      allPRs.push(val);\n    }\n  }\n}\n\n// Deduplicate by PR number\nconst seen = new Set();\nconst uniquePRs = allPRs.filter(pr => {\n  if (seen.has(pr.number)) return false;\n  seen.add(pr.number);\n  return true;\n});\n\nconsole.log('Unique PRs found:', uniquePRs.map(p => p.number));\n\nif (uniquePRs.length === 0) {\n  return [{ json: { hasNewPRs: false, reviewedIds, message: 'No open PRs' } }];\n}\n\nreturn uniquePRs.map(pr => ({\n  json: {\n    hasNewPRs: true,\n    number: pr.number,\n    title: pr.title || 'No title',\n    author: pr.user ? pr.user.login : 'unknown',\n    branch: pr.head ? pr.head.ref : 'unknown',\n    baseBranch: pr.base ? pr.base.ref : 'main',\n    url: pr.html_url || '',\n    createdAt: pr.created_at || '',\n    filesChanged: pr.changed_files || 0,\n    additions: pr.additions || 0,\n    deletions: pr.deletions || 0,\n    body: pr.body ? pr.body.substring(0, 300) : 'No description',\n    reviewedIds\n  }\n}));"
+      },
+      "id": "cb3d6d30-ea70-4103-921a-ed42d8ecfd45",
+      "name": "🧠 Extract & Filter New PRs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -2016,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasNewPRs }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "da8dabc1-d9ae-4afb-9baf-8599fd2f3168",
+      "name": "🔀 IF New PRs?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -1792,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "YOUR_TEAMS_INCOMING_WEBHOOK_URL",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"text\": \"✅ Code Review Agent — No new PRs to review. All clear!\"}",
+        "options": {}
+      },
+      "id": "ad1e2188-2fbd-4da7-a813-5af826529578",
+      "name": "📣 Teams — No New PRs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1792,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/pulls/{{ $json.number }}/files",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "n8n-code-review-agent"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"
+            }
+          ]
+        }
+      },
+      "id": "4ff05af7-608a-4ef7-b0c2-e5e5be79a18b",
+      "name": "📂 Fetch PR File Diffs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        -1360,
+        240
+      ],
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\n\n// Separate PR metadata items from file diff items\n// PR metadata items have 'number' and 'hasNewPRs' fields\n// File diff items have 'filename' field\n\nlet prData = null;\nconst files = [];\n\nfor (const item of allItems) {\n  const d = item.json;\n  if (!d) continue;\n\n  // File diff item - has filename\n  if (d.filename) {\n    files.push({\n      filename: d.filename,\n      status: d.status || 'modified',\n      additions: d.additions || 0,\n      deletions: d.deletions || 0,\n      patch: d.patch ? d.patch.substring(0, 800) : 'No diff'\n    });\n    continue;\n  }\n\n  // Wrapped file objects {0: file1, 1: file2}\n  let foundFiles = false;\n  for (const val of Object.values(d)) {\n    if (val && typeof val === 'object' && val.filename) {\n      files.push({\n        filename: val.filename,\n        status: val.status || 'modified',\n        additions: val.additions || 0,\n        deletions: val.deletions || 0,\n        patch: val.patch ? val.patch.substring(0, 800) : 'No diff'\n      });\n      foundFiles = true;\n    }\n  }\n  if (foundFiles) continue;\n\n  // PR metadata item\n  if (d.number && d.hasNewPRs !== undefined) {\n    prData = d;\n  }\n}\n\n// Fallback: try getting PR data from the Loop node context\nif (!prData) {\n  try {\n    prData = $node['🔁 Loop Over PRs'].json;\n  } catch(e) {\n    console.log('Could not get PR from Loop node:', e.message);\n  }\n}\n\nconsole.log('PR number:', prData ? prData.number : 'NOT FOUND');\nconsole.log('Files found:', files.length);\n\nconst filesSummary = files.map(f =>\n  f.filename + ' (' + f.status + ', +' + f.additions + '/-' + f.deletions + ')'\n).join(', ');\n\nconst diffText = files.slice(0, 3).map(f =>\n  '--- ' + f.filename + ' ---\\n' + f.patch\n).join('\\n\\n');\n\nconst promptLines = [\n  'Review this GitHub pull request and respond ONLY in this format:',\n  'SEVERITY: [CRITICAL or NORMAL]',\n  'SCORE: [1-10]',\n  'SUMMARY: [one sentence]',\n  'ISSUES: [concerns or NONE]',\n  'SUGGESTIONS: [one actionable fix]',\n  '',\n  'PR #' + prData.number + ': ' + prData.title,\n  'Author: ' + prData.author,\n  'Branch: ' + prData.branch + ' into ' + prData.baseBranch,\n  'Description: ' + prData.body,\n  'Files: ' + (filesSummary || 'none'),\n  '',\n  'Code changes:',\n  diffText || 'No diff available',\n  '',\n  'Mark CRITICAL if: hardcoded secrets, passwords, auth bypass, security vulnerabilities.',\n  'Mark NORMAL for: features, bug fixes, refactoring, docs.'\n];\n\nreturn [{ json: {\n  pr: prData,\n  files,\n  prompt: promptLines.join('\\n'),\n  reviewedIds: prData.reviewedIds || []\n} }];"
+      },
+      "id": "2a730cd3-8850-449d-906a-2f87f61abcff",
+      "name": "📝 Build Rich Review Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://ai-proxy.lab.epam.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-02-01",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a senior software engineer. Review pull requests and respond ONLY in the exact structured format. No markdown, no extra text.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.prompt) }}\n    }\n  ],\n  \"max_tokens\": 400,\n  \"temperature\": 0.1\n}",
+        "headerParametersJson": "{\n  \"Api-Key\": \"YOUR_EPAM_DIAL_API_KEY\",\n  \"Content-Type\": \"application/json\"\n}",
+        "queryParametersJson": "{\n  \"api-version\": \"2024-02-01\"\n}"
+      },
+      "id": "44d51274-33fa-4975-a239-f26f90c54aab",
+      "name": "🤖 DIAL API — AI Code Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        -960,
+        240
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst rawContent = item.choices[0].message.content;\n\nfunction extractField(text, field) {\n  const regex = new RegExp(field + ':\\\\s*(.+)', 'i');\n  const match = text.match(regex);\n  return match ? match[1].trim() : 'N/A';\n}\n\nconst severity   = extractField(rawContent, 'SEVERITY');\nconst score      = extractField(rawContent, 'SCORE');\nconst summary    = extractField(rawContent, 'SUMMARY');\nconst issues     = extractField(rawContent, 'ISSUES');\nconst suggestion = extractField(rawContent, 'SUGGESTIONS');\nconst isCritical = severity.toUpperCase().includes('CRITICAL');\n\nlet pr = {};\nlet files = [];\nlet reviewedIds = [];\ntry {\n  const prev = $node['📝 Build Rich Review Prompt'].json;\n  pr = prev.pr || {};\n  files = prev.files || [];\n  reviewedIds = prev.reviewedIds || [];\n} catch(e) {\n  console.log('Could not get PR context:', e.message);\n}\n\nreturn [{ json: {\n  isCritical,\n  severity,\n  score,\n  summary,\n  issues,\n  suggestion,\n  pr,\n  files,\n  reviewedIds,\n  reviewedAt: new Date().toISOString()\n} }];"
+      },
+      "id": "71035637-fdbd-471a-82bb-c263a1adbea7",
+      "name": "🧩 Parse AI Review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isCritical }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "dce336d7-3037-4129-9718-2c0635871675",
+      "name": "🔀 IF Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build CRITICAL Teams Adaptive Card + GitHub comment\nconst d = $input.first().json;\nconst pr = d.pr || {};\n\n// GitHub markdown comment\nconst ghComment = [\n  '## 🤖 AI Code Review',\n  '',\n  '| Field | Value |',\n  '|---|---|',\n  '| **Severity** | 🚨 ' + d.severity + ' |',\n  '| **Score** | ' + d.score + '/10 |',\n  '| **Author** | @' + pr.author + ' |',\n  '| **Branch** | `' + pr.branch + '` → `' + pr.baseBranch + '` |',\n  '',\n  '### 📋 Summary',\n  d.summary,\n  '',\n  '### ⚠️ Issues',\n  '> ' + d.issues,\n  '',\n  '### 💡 Suggestion',\n  d.suggestion,\n  '',\n  '---',\n  '_Reviewed by AI Code Review Agent at ' + d.reviewedAt + '_'\n].join('\\n');\n\n// Teams Adaptive Card\nconst teamsCard = {\n  type: 'message',\n  attachments: [{\n    contentType: 'application/vnd.microsoft.card.adaptive',\n    content: {\n      type: 'AdaptiveCard',\n      version: '1.4',\n      body: [\n        { type: 'TextBlock', text: '🚨 CRITICAL PR DETECTED', size: 'Large', weight: 'Bolder', color: 'Attention' },\n        { type: 'FactSet', facts: [\n          { title: 'PR', value: '#' + pr.number + ': ' + pr.title },\n          { title: 'Author', value: pr.author },\n          { title: 'Branch', value: pr.branch + ' → ' + pr.baseBranch },\n          { title: 'Score', value: d.score + '/10' }\n        ]},\n        { type: 'TextBlock', text: '📋 Summary', weight: 'Bolder', spacing: 'Medium' },\n        { type: 'TextBlock', text: d.summary, wrap: true },\n        { type: 'TextBlock', text: '⚠️ Issues', weight: 'Bolder', spacing: 'Medium', color: 'Attention' },\n        { type: 'TextBlock', text: d.issues, wrap: true, color: 'Attention' },\n        { type: 'TextBlock', text: '💡 Suggestion', weight: 'Bolder', spacing: 'Medium' },\n        { type: 'TextBlock', text: d.suggestion, wrap: true }\n      ],\n      actions: [{ type: 'Action.OpenUrl', title: '🔍 Review PR Now', url: pr.url }]\n    }\n  }]\n};\n\nreturn [{ json: {\n  ghComment,\n  teamsCard: teamsCard,\n  prNumber: pr.number,\n  prUrl: pr.url,\n  pr,\n  reviewedIds: d.reviewedIds,\n  severity: d.severity,\n  score: d.score,\n  summary: d.summary,\n  issues: d.issues,\n  suggestion: d.suggestion,\n  reviewedAt: d.reviewedAt\n} }];"
+      },
+      "id": "749a907d-e078-4b2e-9260-30657e65a3fe",
+      "name": "🔴 Build Critical Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build NORMAL Teams Adaptive Card + GitHub comment\nconst d = $input.first().json;\nconst pr = d.pr || {};\n\n// GitHub markdown comment\nconst ghComment = [\n  '## 🤖 AI Code Review',\n  '',\n  '| Field | Value |',\n  '|---|---|',\n  '| **Severity** | ✅ ' + d.severity + ' |',\n  '| **Score** | ' + d.score + '/10 |',\n  '| **Author** | @' + pr.author + ' |',\n  '| **Branch** | `' + pr.branch + '` → `' + pr.baseBranch + '` |',\n  '',\n  '### 📋 Summary',\n  d.summary,\n  '',\n  '### ⚠️ Issues',\n  d.issues === 'N/A' ? 'None found' : '> ' + d.issues,\n  '',\n  '### 💡 Suggestion',\n  d.suggestion,\n  '',\n  '---',\n  '_Reviewed by AI Code Review Agent at ' + d.reviewedAt + '_'\n].join('\\n');\n\n// Teams Adaptive Card\nconst teamsCard = {\n  type: 'message',\n  attachments: [{\n    contentType: 'application/vnd.microsoft.card.adaptive',\n    content: {\n      type: 'AdaptiveCard',\n      version: '1.4',\n      body: [\n        { type: 'TextBlock', text: '📋 Code Review Complete', size: 'Large', weight: 'Bolder', color: 'Good' },\n        { type: 'FactSet', facts: [\n          { title: 'PR', value: '#' + pr.number + ': ' + pr.title },\n          { title: 'Author', value: pr.author },\n          { title: 'Branch', value: pr.branch + ' → ' + pr.baseBranch },\n          { title: 'Score', value: d.score + '/10' }\n        ]},\n        { type: 'TextBlock', text: '📋 Summary', weight: 'Bolder', spacing: 'Medium' },\n        { type: 'TextBlock', text: d.summary, wrap: true },\n        { type: 'TextBlock', text: '⚠️ Issues', weight: 'Bolder', spacing: 'Medium' },\n        { type: 'TextBlock', text: d.issues === 'N/A' ? 'None found' : d.issues, wrap: true },\n        { type: 'TextBlock', text: '💡 Suggestion', weight: 'Bolder', spacing: 'Medium' },\n        { type: 'TextBlock', text: d.suggestion, wrap: true }\n      ],\n      actions: [{ type: 'Action.OpenUrl', title: '🔍 Review PR', url: pr.url }]\n    }\n  }]\n};\n\nreturn [{ json: {\n  ghComment,\n  teamsCard: teamsCard,\n  prNumber: pr.number,\n  prUrl: pr.url,\n  pr,\n  reviewedIds: d.reviewedIds,\n  severity: d.severity,\n  score: d.score,\n  summary: d.summary,\n  issues: d.issues,\n  suggestion: d.suggestion,\n  reviewedAt: d.reviewedAt\n} }];"
+      },
+      "id": "6628f66f-cfe5-4234-9747-8ee8b168115a",
+      "name": "🟢 Build Normal Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/issues/{{ $json.prNumber }}/comments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "n8n-code-review-agent"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"body\": {{ JSON.stringify($json.ghComment) }} }",
+        "options": {}
+      },
+      "id": "f3998e51-40d0-41dd-a1b1-3e6c5f15ca92",
+      "name": "💬 GitHub — Post Critical Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "YOUR_TEAMS_INCOMING_WEBHOOK_URL",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\"text\": \"🚨 CRITICAL PR ALERT\\n\\nPR #{{ $node['🔴 Build Critical Messages'].json.prNumber }}: {{ $node['🔴 Build Critical Messages'].json.pr.title }}\\n👤 Author: {{ $node['🔴 Build Critical Messages'].json.pr.author }}\\n🌿 Branch: {{ $node['🔴 Build Critical Messages'].json.pr.branch }}\\n\\n🤖 AI Score: {{ $node['🔴 Build Critical Messages'].json.score }}/10\\n📋 Summary: {{ $node['🔴 Build Critical Messages'].json.summary }}\\n⚠️ Issues: {{ $node['🔴 Build Critical Messages'].json.issues }}\\n💡 Fix: {{ $node['🔴 Build Critical Messages'].json.suggestion }}\\n\\n🔗 {{ $node['🔴 Build Critical Messages'].json.pr.url }}\"}",
+        "options": {}
+      },
+      "id": "0a8b67e2-86c3-4fcb-bf43-7c9588cf2244",
+      "name": "🚨 Teams — Critical Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/issues/{{ $json.prNumber }}/comments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "n8n-code-review-agent"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"body\": {{ JSON.stringify($json.ghComment) }} }",
+        "options": {}
+      },
+      "id": "86c37576-88d3-4842-b311-256265c582bd",
+      "name": "💬 GitHub — Post Normal Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "YOUR_TEAMS_INCOMING_WEBHOOK_URL",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $node['🟢 Build Normal Messages'].json.teamsCard }}",
+        "options": {}
+      },
+      "id": "8ed937a5-deb6-472e-9692-a074fb6512ba",
+      "name": "📋 Teams — Review Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst pr = d.pr || {};\nconst reviewedIds = d.reviewedIds || [];\n\nif (pr.number && !reviewedIds.includes(pr.number)) {\n  reviewedIds.push(pr.number);\n}\n\nconst trimmed = reviewedIds.slice(-100);\n\ntry {\n  const stored = $getWorkflowStaticData('global');\n  stored.reviewedPrIds = trimmed;\n  stored.lastRunAt = new Date().toISOString();\n  stored.totalReviewed = (stored.totalReviewed || 0) + 1;\n  console.log('Agent memory saved. Total reviewed:', stored.totalReviewed);\n} catch(e) {\n  console.log('Memory save failed:', e.message);\n}\n\nreturn [{ json: {\n  done: true,\n  prNumber: pr.number,\n  prTitle: pr.title,\n  severity: d.severity,\n  score: d.score,\n  totalCached: trimmed.length,\n  lastRunAt: new Date().toISOString()\n} }];"
+      },
+      "id": "d8211cb3-1a75-4bcc-bdb1-1f5a4f97c463",
+      "name": "💾 Save Agent Memory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        240,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "28724223-1afe-4d84-b844-182cd7fff0b0",
+      "name": "🔁 Loop Over PRs",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1568,
+        224
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "⏰ Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "📡 Fetch Open Pull Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📡 Fetch Open Pull Requests": {
+      "main": [
+        [
+          {
+            "node": "🧠 Extract & Filter New PRs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧠 Extract & Filter New PRs": {
+      "main": [
+        [
+          {
+            "node": "🔀 IF New PRs?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 IF New PRs?": {
+      "main": [
+        [
+          {
+            "node": "🔁 Loop Over PRs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📣 Teams — No New PRs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📂 Fetch PR File Diffs": {
+      "main": [
+        [
+          {
+            "node": "📝 Build Rich Review Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📝 Build Rich Review Prompt": {
+      "main": [
+        [
+          {
+            "node": "🤖 DIAL API — AI Code Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 DIAL API — AI Code Review": {
+      "main": [
+        [
+          {
+            "node": "🧩 Parse AI Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧩 Parse AI Review": {
+      "main": [
+        [
+          {
+            "node": "🔀 IF Critical?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 IF Critical?": {
+      "main": [
+        [
+          {
+            "node": "🔴 Build Critical Messages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🟢 Build Normal Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔴 Build Critical Messages": {
+      "main": [
+        [
+          {
+            "node": "💬 GitHub — Post Critical Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 GitHub — Post Critical Comment": {
+      "main": [
+        [
+          {
+            "node": "🚨 Teams — Critical Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🟢 Build Normal Messages": {
+      "main": [
+        [
+          {
+            "node": "💬 GitHub — Post Normal Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 GitHub — Post Normal Comment": {
+      "main": [
+        [
+          {
+            "node": "📋 Teams — Review Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚨 Teams — Critical Alert": {
+      "main": [
+        [
+          {
+            "node": "💾 Save Agent Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Teams — Review Summary": {
+      "main": [
+        [
+          {
+            "node": "💾 Save Agent Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔁 Loop Over PRs": {
+      "main": [
+        [],
+        [
+          {
+            "node": "📂 Fetch PR File Diffs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Save Agent Memory": {
+      "main": [
+        [
+          {
+            "node": "🔁 Loop Over PRs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "257b49d6-2729-43b1-afaf-28f434344e35",
+  "meta": {
+    "instanceId": "1f8876e624fea82e5a4ba7db1fa274a1e479523eb234f95ac832aac04fa13d89"
+  },
+  "id": "Wm5bWiYefjdJvYfB",
+  "tags": []
 }
