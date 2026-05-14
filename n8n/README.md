@@ -9,7 +9,7 @@ with severity-based routing and persistent memory to avoid re-reviewing PRs.
 
 ## Workflow Diagram
 
-![Autonomous AI Code Review Agent](../docs/n8n-workflow-diagram.svg)
+![Autonomous AI Code Review Agent](../docs/n8n_code_review_agent_flow.svg)
 
 ## Workflow Flow
 
