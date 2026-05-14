@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+*.user
+appsettings.Development.json
+appsettings.*.json
+!appsettings.Example.json
+
+# N8N local data
+.n8n/
+
+# Secrets
+*.env
+.env
+secrets.json
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.idea/
+
+# OS
+.DS_Store
+Thumbs.db

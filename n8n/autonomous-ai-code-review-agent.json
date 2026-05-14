@@ -1,0 +1,7 @@
+{
+  "_note": "Export your workflow from N8N (Workflows -> Download) and replace this file.",
+  "name": "Autonomous AI Code Review Agent",
+  "nodes": [],
+  "connections": {},
+  "active": false
+}
