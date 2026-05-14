@@ -7,6 +7,10 @@
 posts structured review comments back to GitHub, and sends real-time alerts to Microsoft Teams
 with severity-based routing and persistent memory to avoid re-reviewing PRs.
 
+## Workflow Diagram
+
+![Autonomous AI Code Review Agent](../docs/n8n-workflow-diagram.svg)
+
 ## Workflow Flow
 
 Schedule Trigger (every 30 min)
