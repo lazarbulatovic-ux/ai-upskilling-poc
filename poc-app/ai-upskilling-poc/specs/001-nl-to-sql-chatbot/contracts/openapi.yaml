@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: Sales Chatbot API
+  description: Minimal API for NL-to-SQL sales chatbot PoC
+  version: 1.0.0
+servers:
+  - url: /
+    description: Local development host
+paths:
+  /api/chat/message:
+    post:
+      operationId: sendChatMessage
+      summary: Send a chat message
+      tags: [Chat]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageRequest'
+            example:
+              message: How many orders were placed last month?
+      responses:
+        '200':
+          description: Assistant reply
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessageResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Data source unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/chat/new:
+    post:
+      operationId: resetChatSession
+      summary: Start a new chat session
+      tags: [Chat]
+      responses:
+        '204':
+          description: Session reset
+components:
+  schemas:
+    ChatMessageRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: User natural-language question
+    ChatMessageResponse:
+      type: object
+      required: [reply, sessionExchangeCount]
+      properties:
+        reply:
+          type: string
+          description: Plain-language assistant answer or deflection
+        sessionExchangeCount:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: Exchanges in current session after this reply
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

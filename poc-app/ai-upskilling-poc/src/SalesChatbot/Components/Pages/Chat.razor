@@ -1,0 +1,60 @@
+@page "/"
+@page "/chat"
+@rendermode InteractiveServer
+@inject IConversationService ConversationService
+
+<PageTitle>Sales Chatbot</PageTitle>
+
+<div class="chat-page">
+    <header class="chat-header">
+        <h1>Sales Chatbot</h1>
+        <button class="btn-new-chat" @onclick="StartNewChat">New Chat</button>
+    </header>
+
+    <MessageList Messages="_messages" IsLoading="_isLoading" />
+
+    <ChatInput OnSend="SendMessageAsync" Disabled="_isLoading" />
+</div>
+
+@code {
+    private readonly List<ChatMessageViewModel> _messages = [];
+    private bool _isLoading;
+
+    protected override void OnInitialized()
+    {
+        _messages.Add(new ChatMessageViewModel(false,
+            "Hello! Ask me about orders, customers, or products in plain English."));
+    }
+
+    private async Task SendMessageAsync(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || _isLoading)
+        {
+            return;
+        }
+
+        _messages.Add(new ChatMessageViewModel(true, text));
+        _isLoading = true;
+
+        try
+        {
+            var reply = await ConversationService.SendMessageAsync(text);
+            _messages.Add(new ChatMessageViewModel(false, reply));
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void StartNewChat()
+    {
+        ConversationService.Reset();
+        _messages.Clear();
+        _messages.Add(new ChatMessageViewModel(false,
+            "Started a new chat. Ask me about orders, customers, or products."));
+    }
+
+}
