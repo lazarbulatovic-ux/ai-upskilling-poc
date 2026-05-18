@@ -1,0 +1,53 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## User secrets & environment
+secrets.json
+*.env
+.env*
+appsettings.*.local.json
+
+## IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+## OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+## Test results
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+## EF
+*.db
+*.db-shm
+*.db-wal

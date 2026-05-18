@@ -1,0 +1,23 @@
+<div class="message-list">
+    @foreach (var message in Messages)
+    {
+        <div class="message @(message.IsUser ? "user" : "assistant")">
+            <div class="bubble">@message.Text</div>
+        </div>
+    }
+
+    @if (IsLoading)
+    {
+        <div class="message assistant">
+            <div class="bubble loading">Thinking…</div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<ChatMessageViewModel> Messages { get; set; } = [];
+
+    [Parameter]
+    public bool IsLoading { get; set; }
+}
