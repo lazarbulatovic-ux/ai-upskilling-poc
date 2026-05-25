@@ -4,7 +4,7 @@ using SalesChatbot.Services.Validation;
 
 namespace SalesChatbot.Services;
 
-public sealed class TextToSqlService(IDialClient dialClient, ILogger<TextToSqlService> logger) : ITextToSqlService
+public sealed class TextToSqlService(IDialClient dialClient, IQueryValidatorService queryValidator, ILogger<TextToSqlService> logger) : ITextToSqlService
 {
     private const double SqlTemperature = 0;
 
@@ -89,8 +89,6 @@ public sealed class TextToSqlService(IDialClient dialClient, ILogger<TextToSqlSe
         "last 30 days"
         "last month"      -> OrderDate >= DATEADD(DAY,-30,GETDATE())
         "this month"      -> MONTH(OrderDate)=MONTH(GETDATE()) AND YEAR(OrderDate)=YEAR(GETDATE())
-        "last month"
-        (calendar)        -> MONTH(OrderDate)=MONTH(DATEADD(MONTH,-1,GETDATE())) AND YEAR(OrderDate)=YEAR(DATEADD(MONTH,-1,GETDATE()))
         "this quarter"    -> DATEPART(QUARTER,OrderDate)=DATEPART(QUARTER,GETDATE()) AND YEAR(OrderDate)=YEAR(GETDATE())
         "last quarter"    -> DATEPART(QUARTER,OrderDate)=DATEPART(QUARTER,DATEADD(QUARTER,-1,GETDATE())) AND YEAR(OrderDate)=YEAR(DATEADD(QUARTER,-1,GETDATE()))
         "this year"
@@ -241,7 +239,14 @@ public sealed class TextToSqlService(IDialClient dialClient, ILogger<TextToSqlSe
         if (!SqlSafetyValidator.IsValidSelect(trimmed, out var reason))
         {
             logger.LogWarning("[TextToSql] Validation failed: {Reason}. Cleaned response: {Cleaned}", reason, trimmed);
-            return SqlGenerationResult.Failure(reason ?? "Invalid SQL generated.");
+            return SqlGenerationResult.Failure(reason ?? "Invalid SQL generated.", rawSql: trimmed);
+        }
+
+        var validation = await queryValidator.ValidateAsync(trimmed, cancellationToken);
+        if (!validation.IsApproved)
+        {
+            logger.LogWarning("[TextToSql] LLM validator rejected SQL: {Reason}", validation.RejectionReason);
+            return SqlGenerationResult.Failure(validation.RejectionReason ?? "SQL rejected by validator.", rawSql: trimmed);
         }
 
         return SqlGenerationResult.Success(trimmed);

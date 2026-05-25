@@ -13,6 +13,8 @@ public class SalesDbContext(DbContextOptions<SalesDbContext> options) : DbContex
 
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
 
+    public DbSet<QueryAuditEntry> QueryAuditLog => Set<QueryAuditEntry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Customer>(entity =>
@@ -54,6 +56,15 @@ public class SalesDbContext(DbContextOptions<SalesDbContext> options) : DbContex
                 .WithMany(p => p.OrderItems)
                 .HasForeignKey(e => e.ProductId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<QueryAuditEntry>(entity =>
+        {
+            entity.ToTable("QueryAuditLog");
+            entity.Property(e => e.UserQuestion).HasMaxLength(2000).IsRequired();
+            entity.Property(e => e.GeneratedSql).HasMaxLength(4000).IsRequired();
+            entity.Property(e => e.TimestampUtc).IsRequired();
+            entity.HasIndex(e => e.TimestampUtc);
         });
     }
 }
