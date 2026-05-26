@@ -18,9 +18,12 @@ builder.Services.AddHttpClient<IDialClient, DialClient>();
 builder.Services.AddDbContext<SalesDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SalesDb")));
 
+builder.Services.AddScoped<IQueryValidatorService, QueryValidatorService>();
 builder.Services.AddScoped<ITextToSqlService, TextToSqlService>();
 builder.Services.AddScoped<ISqlExecutionService, SqlExecutionService>();
-builder.Services.AddScoped<IResultInterpreterService, ResultInterpreterService>();
+builder.Services.AddScoped<IResultInterpreterService, DeterministicResultFormatter>();
+builder.Services.AddScoped<ResultInterpreterService>(); // kept for rollback
+builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
 
 var app = builder.Build();

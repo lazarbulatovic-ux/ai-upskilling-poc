@@ -10,11 +10,14 @@ namespace SalesChatbot.UnitTests.Services;
 public class TextToSqlServiceTests
 {
     private readonly IDialClient _dialClient = Substitute.For<IDialClient>();
+    private readonly IQueryValidatorService _queryValidator = Substitute.For<IQueryValidatorService>();
     private readonly TextToSqlService _sut;
 
     public TextToSqlServiceTests()
     {
-        _sut = new TextToSqlService(_dialClient, Substitute.For<ILogger<TextToSqlService>>());
+        _queryValidator.ValidateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(SqlValidationResult.Approved());
+        _sut = new TextToSqlService(_dialClient, _queryValidator, Substitute.For<ILogger<TextToSqlService>>());
     }
 
     [Fact]

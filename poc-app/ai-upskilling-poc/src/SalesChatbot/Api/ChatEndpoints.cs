@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using SalesChatbot.Data;
 using SalesChatbot.Services;
 using SalesChatbot.Services.Interfaces;
 
@@ -38,6 +40,33 @@ public static class ChatEndpoints
             return Results.NoContent();
         });
 
+        app.MapGet("/api/audit", async (SalesDbContext db, CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var entries = await db.QueryAuditLog
+                    .OrderByDescending(e => e.TimestampUtc)
+                    .Take(50)
+                    .Select(e => new AuditEntryResponse(
+                        e.Id,
+                        e.TimestampUtc,
+                        e.UserQuestion,
+                        e.GeneratedSql,
+                        e.WasBlocked,
+                        e.RowCount,
+                        e.ExecutionMs))
+                    .ToListAsync(cancellationToken);
+
+                return Results.Ok(entries);
+            }
+            catch (Exception ex) when (IsDatabaseUnavailable(ex))
+            {
+                return Results.Json(
+                    new ErrorResponse("Database is temporarily unavailable."),
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+        });
+
         return app;
     }
 
@@ -50,4 +79,13 @@ public static class ChatEndpoints
     public sealed record ChatMessageResponse(string Reply, int SessionExchangeCount);
 
     public sealed record ErrorResponse(string Error);
+
+    public sealed record AuditEntryResponse(
+        int Id,
+        DateTime TimestampUtc,
+        string UserQuestion,
+        string GeneratedSql,
+        bool WasBlocked,
+        int RowCount,
+        long ExecutionMs);
 }
