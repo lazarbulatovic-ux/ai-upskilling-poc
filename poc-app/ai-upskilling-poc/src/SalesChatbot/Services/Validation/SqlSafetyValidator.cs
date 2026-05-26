@@ -8,7 +8,7 @@ public static partial class SqlSafetyValidator
     private static readonly string[] ForbiddenTokens =
     [
         "INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER", "TRUNCATE",
-        "MERGE", "EXEC", "EXECUTE", "GRANT", "REVOKE", "INTO", "OPENROWSET",
+        "MERGE", "EXEC", "EXECUTE", "ERASE", "GRANT", "REVOKE", "INTO", "OPENROWSET",
         "OPENQUERY", "XP_", "SP_"
     ];
 
@@ -54,6 +54,28 @@ public static partial class SqlSafetyValidator
         }
 
         return true;
+    }
+
+    public static bool ContainsBlockedKeyword(string? sql, out string? matchedKeyword)
+    {
+        matchedKeyword = null;
+
+        if (string.IsNullOrWhiteSpace(sql))
+        {
+            return false;
+        }
+
+        var upper = StripComments(sql).ToUpperInvariant();
+        foreach (var token in ForbiddenTokens)
+        {
+            if (ContainsWholeWord(upper, token))
+            {
+                matchedKeyword = token;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static string EnforceRowLimit(string sql, int maxRows = 500)

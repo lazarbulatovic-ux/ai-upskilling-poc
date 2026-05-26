@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Microsoft.Data.SqlClient;
+using SalesChatbot.Data.Entities;
 using SalesChatbot.Models;
 using SalesChatbot.Services.Interfaces;
 
@@ -7,7 +9,8 @@ namespace SalesChatbot.Services;
 public sealed class ConversationService(
     ITextToSqlService textToSqlService,
     ISqlExecutionService sqlExecutionService,
-    IResultInterpreterService resultInterpreterService) : IConversationService
+    IResultInterpreterService resultInterpreterService,
+    IAuditService auditService) : IConversationService
 {
     private readonly ConversationSession _session = new();
 
@@ -40,18 +43,34 @@ public sealed class ConversationService(
 
         if (!sqlResult.IsSuccess || sqlResult.Sql is null)
         {
+            if (sqlResult.RawSql is not null)
+            {
+                await auditService.LogAsync(new QueryAuditEntry
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    UserQuestion = trimmed,
+                    GeneratedSql = sqlResult.RawSql,
+                    WasBlocked = true,
+                    RowCount = 0,
+                    ExecutionMs = 0
+                }, cancellationToken);
+            }
+
             var reply = MapGenerationFailure(sqlResult.FailureReason);
             _session.AddExchange(new ChatExchange { UserMessage = trimmed, AssistantMessage = reply });
             return reply;
         }
 
         QueryResult queryResult;
+        var sw = Stopwatch.StartNew();
         try
         {
             queryResult = await sqlExecutionService.ExecuteQueryAsync(sqlResult.Sql, cancellationToken);
+            sw.Stop();
         }
         catch (Exception ex) when (IsDatabaseUnavailable(ex) || ex is InvalidOperationException)
         {
+            sw.Stop();
             if (IsDatabaseUnavailable(ex))
             {
                 return DeflectionMessages.DataUnavailable;
@@ -61,6 +80,16 @@ public sealed class ConversationService(
             _session.AddExchange(new ChatExchange { UserMessage = trimmed, AssistantMessage = reply });
             return reply;
         }
+
+        await auditService.LogAsync(new QueryAuditEntry
+        {
+            TimestampUtc = DateTime.UtcNow,
+            UserQuestion = trimmed,
+            GeneratedSql = sqlResult.Sql,
+            WasBlocked = false,
+            RowCount = queryResult.RowCount,
+            ExecutionMs = sw.ElapsedMilliseconds
+        }, cancellationToken);
 
         string answer;
         try

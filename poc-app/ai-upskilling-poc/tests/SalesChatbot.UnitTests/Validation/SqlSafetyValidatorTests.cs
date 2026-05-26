@@ -158,4 +158,66 @@ public class SqlSafetyValidatorTests
 
         limited.Should().ContainEquivalentOf("TOP 500");
     }
+
+    // ── ContainsBlockedKeyword ──────────────────────────────────────────────
+
+    [Fact]
+    public void ContainsBlockedKeyword_NullInput_ReturnsFalse()
+    {
+        var result = SqlSafetyValidator.ContainsBlockedKeyword(null, out var kw);
+
+        result.Should().BeFalse();
+        kw.Should().BeNull();
+    }
+
+    [Fact]
+    public void ContainsBlockedKeyword_ValidSelect_ReturnsFalse()
+    {
+        var result = SqlSafetyValidator.ContainsBlockedKeyword("SELECT COUNT(*) FROM Orders", out var kw);
+
+        result.Should().BeFalse();
+        kw.Should().BeNull();
+    }
+
+    [Fact]
+    public void ContainsBlockedKeyword_DropKeyword_ReturnsTrue()
+    {
+        var result = SqlSafetyValidator.ContainsBlockedKeyword("SELECT * FROM Orders; DROP TABLE Orders", out var kw);
+
+        result.Should().BeTrue();
+        kw.Should().Be("DROP");
+    }
+
+    [Fact]
+    public void ContainsBlockedKeyword_EraseKeyword_ReturnsTrue()
+    {
+        var result = SqlSafetyValidator.ContainsBlockedKeyword("ERASE FROM Orders", out var kw);
+
+        result.Should().BeTrue();
+        kw.Should().Be("ERASE");
+    }
+
+    [Fact]
+    public void ContainsBlockedKeyword_ExecutorWord_DoesNotMatchExec()
+    {
+        // "EXECUTOR" contains "EXEC" as a substring but not as a whole word
+        var result = SqlSafetyValidator.ContainsBlockedKeyword("SELECT ExecutorName FROM Staff", out var kw);
+
+        result.Should().BeFalse();
+        kw.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("DELETE FROM Orders")]
+    [InlineData("TRUNCATE TABLE Orders")]
+    [InlineData("INSERT INTO Orders VALUES(1)")]
+    [InlineData("UPDATE Orders SET Status='X'")]
+    [InlineData("ALTER TABLE Orders ADD Col INT")]
+    public void ContainsBlockedKeyword_MutatingStatements_ReturnTrue(string sql)
+    {
+        var result = SqlSafetyValidator.ContainsBlockedKeyword(sql, out var kw);
+
+        result.Should().BeTrue();
+        kw.Should().NotBeNullOrEmpty();
+    }
 }

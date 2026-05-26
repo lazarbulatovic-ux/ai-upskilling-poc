@@ -11,11 +11,12 @@ public class ConversationServiceSingleTurnTests
     private readonly ITextToSqlService _textToSql = Substitute.For<ITextToSqlService>();
     private readonly ISqlExecutionService _sqlExecution = Substitute.For<ISqlExecutionService>();
     private readonly IResultInterpreterService _interpreter = Substitute.For<IResultInterpreterService>();
+    private readonly IAuditService _auditService = Substitute.For<IAuditService>();
     private readonly ConversationService _sut;
 
     public ConversationServiceSingleTurnTests()
     {
-        _sut = new ConversationService(_textToSql, _sqlExecution, _interpreter);
+        _sut = new ConversationService(_textToSql, _sqlExecution, _interpreter, _auditService);
     }
 
     private static QueryResult EmptyResult() => new()

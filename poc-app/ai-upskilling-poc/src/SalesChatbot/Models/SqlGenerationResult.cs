@@ -8,9 +8,11 @@ public sealed class SqlGenerationResult
 
     public string? FailureReason { get; init; }
 
-    public static SqlGenerationResult Success(string sql) =>
-        new() { IsSuccess = true, Sql = sql };
+    public string? RawSql { get; init; }
 
-    public static SqlGenerationResult Failure(string reason) =>
-        new() { IsSuccess = false, FailureReason = reason };
+    public static SqlGenerationResult Success(string sql) =>
+        new() { IsSuccess = true, Sql = sql, RawSql = sql };
+
+    public static SqlGenerationResult Failure(string reason, string? rawSql = null) =>
+        new() { IsSuccess = false, FailureReason = reason, RawSql = rawSql };
 }
