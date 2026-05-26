@@ -1,6 +1,7 @@
 using SalesChatbot.Models;
 using SalesChatbot.Services.Interfaces;
 using SalesChatbot.Services.Validation;
+using System.Text;
 
 namespace SalesChatbot.Services;
 
@@ -216,6 +217,46 @@ public sealed class TextToSqlService(IDialClient dialClient, IQueryValidatorServ
         - User asks to INSERT, UPDATE, DELETE, DROP, or modify any data
         - Query cannot be expressed as a safe SELECT against the schema above
         - The question is completely ambiguous even with conversation history
+
+        ══════════════════════════════════════════
+        RESULTS FORMATTING
+        ══════════════════════════════════════════
+        When query results are provided after the SQL, format them for the business user.
+        Never mention SQL, tables, columns, queries, or technical terms in your response.
+
+        FORMAT DETECTION — choose format based on user intent and result shape:
+
+        SINGLE VALUE (count, total, average, one row one column):
+        -> One concise sentence.
+        -> "142 orders were placed last month."
+        -> "Total revenue from German orders was €18,450."
+
+        EXPLICIT LIST REQUEST (user says "list", "show me", "give me", "display",
+                               "list all", "show all", "give me all", "list them all"):
+        -> Return ALL rows as a markdown table. Do NOT cap at 5.
+        -> Use human-readable column headers — "Order Date" not "OrderDate".
+
+        OPEN-ENDED MULTI-ROW (general question, many rows):
+        -> State the total count, then summarise the top 5.
+        -> "There are 36 orders for this customer. Here are the 5 most recent:
+           1. Order 12 — 18 May 2026 (Completed)"
+
+        GROUPED / RANKED RESULTS (GROUP BY, rankings, top-N):
+        -> Always render as a markdown table, even if not explicitly requested.
+
+        ZERO ROWS:
+        -> One sentence. "No orders from France were found in the last 30 days."
+
+        FORMATTING RULES:
+        - Currency: € symbol, comma thousands separator — €18,450 not 18450
+        - Dates: "18 May 2026" — never "2026-05-18" or "05/18/2026"
+        - Column headers: human-readable — "Order Date" not "OrderDate"
+        - IDs: never show a raw ID alone — always accompany with a name or description
+        - Numbers: comma thousands separator — 1,234 not 1234
+        - Status values: show as-is — Completed, Pending, Cancelled
+        - File/export requests (PDF, Excel, CSV): respond with exactly —
+          "I can display data in tables here, but cannot generate downloadable files.
+           You can select and copy the table above to paste into Excel or Word."
         """;
 
     public async Task<SqlGenerationResult> GenerateSqlAsync(
@@ -289,5 +330,52 @@ public sealed class TextToSqlService(IDialClient dialClient, IQueryValidatorServ
 
         messages.Add(new DialChatMessage("user", userQuestion));
         return messages;
+    }
+
+    public async Task<string> FormatResultAsync(
+    string userQuestion,
+    QueryResult queryResult,
+    IReadOnlyList<ChatExchange> history,
+    CancellationToken cancellationToken = default)
+    {
+        var dataSummary = queryResult.RowCount == 0
+            ? "Query returned zero rows."
+            : BuildDataSummary(queryResult);
+
+        // CORRECT - fresh message list, no SQL in the thread
+        var messages = new List<DialChatMessage>
+        {
+            new("system", SystemPrompt),
+        };
+
+        foreach (var exchange in history)
+        {
+            messages.Add(new DialChatMessage("user", exchange.UserMessage));
+            messages.Add(new DialChatMessage("assistant", exchange.AssistantMessage));
+        }
+
+        messages.Add(new DialChatMessage("user", $"Question: {userQuestion}\n\nResults:\n{dataSummary}"));
+
+        return await dialClient.GetChatCompletionAsync(messages, 0.3, cancellationToken);
+    }
+
+    private static string BuildDataSummary(QueryResult queryResult)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"Total rows returned: {queryResult.RowCount}");
+        builder.AppendLine($"Columns: {string.Join(", ", queryResult.ColumnNames)}");
+        builder.AppendLine();
+
+        var rowsToSend = queryResult.Rows.Take(1000).ToList();
+        builder.AppendLine($"Data ({rowsToSend.Count} of {queryResult.RowCount} rows):");
+
+        var rowIndex = 1;
+        foreach (var row in rowsToSend)
+        {
+            builder.AppendLine($"Row {rowIndex}: {string.Join("; ", row.Select(kv => $"{kv.Key}={kv.Value}"))}");
+            rowIndex++;
+        }
+
+        return builder.ToString();
     }
 }

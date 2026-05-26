@@ -9,7 +9,6 @@ namespace SalesChatbot.Services;
 public sealed class ConversationService(
     ITextToSqlService textToSqlService,
     ISqlExecutionService sqlExecutionService,
-    IResultInterpreterService resultInterpreterService,
     IAuditService auditService) : IConversationService
 {
     private readonly ConversationSession _session = new();
@@ -91,22 +90,26 @@ public sealed class ConversationService(
             ExecutionMs = sw.ElapsedMilliseconds
         }, cancellationToken);
 
-        string answer;
-        try
+        var answer = DeterministicResultFormatter.Format(queryResult);
+
+        var historySummary = BuildHistorySummary(trimmed, queryResult);
+        _session.AddExchange(new ChatExchange { UserMessage = trimmed, AssistantMessage = historySummary });
+        return answer;
+    }
+
+    private static string BuildHistorySummary(string question, QueryResult queryResult)
+    {
+        if (queryResult.RowCount == 0)
+            return "No results were found.";
+
+        if (queryResult.RowCount == 1 && queryResult.ColumnNames.Count == 1)
         {
-            answer = await resultInterpreterService.InterpretAsync(
-                trimmed,
-                queryResult,
-                _session.Exchanges,
-                cancellationToken);
-        }
-        catch (Exception ex) when (IsDatabaseUnavailable(ex))
-        {
-            return DeflectionMessages.DataUnavailable;
+            var col = queryResult.ColumnNames[0];
+            var val = queryResult.Rows[0][col];
+            return $"The answer was: {val}";
         }
 
-        _session.AddExchange(new ChatExchange { UserMessage = trimmed, AssistantMessage = answer });
-        return answer;
+        return $"Found {queryResult.RowCount} results for: {question}";
     }
 
     private static bool IsAmbiguousFollowUp(string message, IReadOnlyList<ChatExchange> history)

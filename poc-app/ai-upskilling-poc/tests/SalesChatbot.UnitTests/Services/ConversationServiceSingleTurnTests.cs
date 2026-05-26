@@ -10,13 +10,12 @@ public class ConversationServiceSingleTurnTests
 {
     private readonly ITextToSqlService _textToSql = Substitute.For<ITextToSqlService>();
     private readonly ISqlExecutionService _sqlExecution = Substitute.For<ISqlExecutionService>();
-    private readonly IResultInterpreterService _interpreter = Substitute.For<IResultInterpreterService>();
     private readonly IAuditService _auditService = Substitute.For<IAuditService>();
     private readonly ConversationService _sut;
 
     public ConversationServiceSingleTurnTests()
     {
-        _sut = new ConversationService(_textToSql, _sqlExecution, _interpreter, _auditService);
+        _sut = new ConversationService(_textToSql, _sqlExecution, _auditService);
     }
 
     private static QueryResult EmptyResult() => new()
@@ -38,8 +37,7 @@ public class ConversationServiceSingleTurnTests
             .Returns(SqlGenerationResult.Success("SELECT COUNT(*) FROM Orders"));
         _sqlExecution.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(OneRowResult());
-        _interpreter.InterpretAsync(Arg.Any<string>(), Arg.Any<QueryResult>(), Arg.Any<IReadOnlyList<ChatExchange>>(), Arg.Any<CancellationToken>())
-            .Returns("There are 42 orders.");
+      
 
         var result = await _sut.SendMessageAsync("how many orders?");
 
@@ -88,9 +86,7 @@ public class ConversationServiceSingleTurnTests
             .Returns(SqlGenerationResult.Success("SELECT 1"));
         _sqlExecution.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(OneRowResult());
-        _interpreter.InterpretAsync(Arg.Any<string>(), Arg.Any<QueryResult>(), Arg.Any<IReadOnlyList<ChatExchange>>(), Arg.Any<CancellationToken>())
-            .Returns("answer");
-
+        
         await _sut.SendMessageAsync("question");
 
         _sut.GetHistory().Should().HaveCount(1);
@@ -122,9 +118,7 @@ public class ConversationServiceSingleTurnTests
             .Returns(SqlGenerationResult.Success("SELECT 1"));
         _sqlExecution.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(OneRowResult());
-        _interpreter.InterpretAsync(Arg.Any<string>(), Arg.Any<QueryResult>(), Arg.Any<IReadOnlyList<ChatExchange>>(), Arg.Any<CancellationToken>())
-            .Returns("answer");
-
+       
         await _sut.SendMessageAsync("question");
         _sut.Reset();
 

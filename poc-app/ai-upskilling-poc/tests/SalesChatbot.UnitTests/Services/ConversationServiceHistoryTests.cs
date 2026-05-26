@@ -10,13 +10,12 @@ public class ConversationServiceHistoryTests
 {
     private readonly ITextToSqlService _textToSql = Substitute.For<ITextToSqlService>();
     private readonly ISqlExecutionService _sqlExecution = Substitute.For<ISqlExecutionService>();
-    private readonly IResultInterpreterService _interpreter = Substitute.For<IResultInterpreterService>();
     private readonly IAuditService _auditService = Substitute.For<IAuditService>();
     private readonly ConversationService _sut;
 
     public ConversationServiceHistoryTests()
     {
-        _sut = new ConversationService(_textToSql, _sqlExecution, _interpreter, _auditService);
+        _sut = new ConversationService(_textToSql, _sqlExecution, _auditService);
         SetupSuccessfulTurn();
     }
 
@@ -26,8 +25,6 @@ public class ConversationServiceHistoryTests
             .Returns(SqlGenerationResult.Success("SELECT 1"));
         _sqlExecution.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new QueryResult { ColumnNames = ["n"], Rows = [new Dictionary<string, object?> { ["n"] = 1 }] });
-        _interpreter.InterpretAsync(Arg.Any<string>(), Arg.Any<QueryResult>(), Arg.Any<IReadOnlyList<ChatExchange>>(), Arg.Any<CancellationToken>())
-            .Returns("answer");
     }
 
     [Fact]

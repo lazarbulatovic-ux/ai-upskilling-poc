@@ -2,7 +2,16 @@
     @foreach (var message in Messages)
     {
         <div class="message @(message.IsUser ? "user" : "assistant")">
-            <div class="bubble">@message.Text</div>
+            <div class="bubble @(message.IsUser ? "" : "assistant-bubble")">
+                @if (!message.IsUser && HasTable(message.Text))
+                {
+                    @((MarkupString)RenderMessage(message.Text))
+                }
+                else
+                {
+                    @message.Text
+                }
+            </div>
         </div>
     }
 
@@ -20,4 +29,67 @@
 
     [Parameter]
     public bool IsLoading { get; set; }
+
+    private static bool HasTable(string text) =>
+        text.Contains("| --- |") || text.Contains("|---|") || text.Contains("| -- |");
+
+    private static string RenderMessage(string text)
+    {
+        var lines = text.Split('\n');
+        var html = new System.Text.StringBuilder();
+        var inTable = false;
+        var headerDone = false;
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+
+            if (line.StartsWith("|") && line.EndsWith("|"))
+            {
+                if (IsSeparatorRow(line))
+                {
+                    headerDone = true;
+                    continue;
+                }
+
+                if (!inTable)
+                {
+                    html.Append("<div class=\"chat-table-wrap\"><table class=\"chat-table\"><thead><tr>");
+                    inTable = true;
+                    headerDone = false;
+                    foreach (var cell in SplitCells(line))
+                        html.Append($"<th>{cell}</th>");
+                    html.Append("</tr></thead><tbody>");
+                }
+                else if (headerDone)
+                {
+                    html.Append("<tr>");
+                    foreach (var cell in SplitCells(line))
+                        html.Append($"<td>{cell}</td>");
+                    html.Append("</tr>");
+                }
+            }
+            else
+            {
+                if (inTable)
+                {
+                    html.Append("</tbody></table></div>");
+                    inTable = false;
+                }
+                if (!string.IsNullOrWhiteSpace(line))
+                    html.Append($"<p>{line}</p>");
+            }
+        }
+
+        if (inTable)
+            html.Append("</tbody></table></div>");
+
+        return html.ToString();
+    }
+
+    private static bool IsSeparatorRow(string line) =>
+        line.Replace("|", "").Replace("-", "").Replace(" ", "").Replace(":", "").Length == 0;
+
+    private static IEnumerable<string> SplitCells(string line) =>
+        line.Trim('|').Split('|').Select(c => c.Trim());
 }

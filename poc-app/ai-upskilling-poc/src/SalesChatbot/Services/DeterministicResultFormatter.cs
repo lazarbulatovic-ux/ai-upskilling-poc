@@ -5,7 +5,7 @@ using SalesChatbot.Services.Interfaces;
 
 namespace SalesChatbot.Services;
 
-public sealed partial class DeterministicResultFormatter : IResultInterpreterService
+public sealed partial class DeterministicResultFormatter
 {
     private static readonly HashSet<string> CurrencyColumnKeywords =
         new(StringComparer.OrdinalIgnoreCase)
@@ -113,6 +113,17 @@ public sealed partial class DeterministicResultFormatter : IResultInterpreterSer
         }
 
         return value.ToString() ?? string.Empty;
+    }
+
+    public static string Format(QueryResult queryResult)
+    {
+        if (queryResult.RowCount == 0)
+            return FormatZeroRows();
+
+        if (queryResult.RowCount == 1 && queryResult.ColumnNames.Count == 1)
+            return FormatSingleValue(queryResult);
+
+        return FormatTable(queryResult);
     }
 
     private static bool IsCurrencyColumn(string columnName)
