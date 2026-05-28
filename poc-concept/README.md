@@ -77,20 +77,7 @@ Sample data seeded via `/data/seed.sql` in the repository.
 
 ### Architecture Flow
 
-```
-User (Blazor UI)
-      ↓
-.NET 8 Minimal API
-      ↓                               ↓
-EPAM DIAL (GPT-4o)               SQL Server
-  + conversation history               ↓
-      ↓                    DeterministicResultFormatter
-SQL query generated              (pure C#, no LLM)
-      ↓                               ↓
-Formatted answer returned to UI
-Plain-language summary stored in session history
-Audit entry written to database
-```
+![SalesBot_Architecture](../docs/saleschatbot_architecture_optimised.jpg)
 
 ### Core Services
 
