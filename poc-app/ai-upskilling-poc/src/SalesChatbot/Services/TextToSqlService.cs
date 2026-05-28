@@ -75,9 +75,13 @@ public sealed class TextToSqlService(IDialClient dialClient, IQueryValidatorServ
         PRONOUNS: when the user says "them", "those", "their", "that customer" — resolve from
                   the most recent conversation turn. If prior answer was about German orders,
                   "their revenue" = revenue where Customers.Country = 'Germany'
-        "SYNONYMS: 'clients', 'buyers', 'accounts' all mean Customers table.
-        'products', 'items', 'goods' all mean Products table.
-        'purchases', 'transactions', 'sales' all mean Orders table."
+        SYNONYMS: 'clients', 'buyers', 'accounts' all mean Customers table.
+                  'products', 'items', 'goods' all mean Products table.
+                  'purchases', 'transactions', 'sales' all mean Orders table.
+        CLARIFICATION QUESTIONS: if the user asks 'is that for X or Y?', 'which one?',
+                  'do you mean X?' — treat it as a follow-up and use the conversation
+                  history to determine what they are asking about, then generate the
+                  appropriate SQL. Never return CANNOT_ANSWER for clarification questions.
 
         ══════════════════════════════════════════
         TIME PHRASE DICTIONARY
@@ -208,15 +212,26 @@ public sealed class TextToSqlService(IDialClient dialClient, IQueryValidatorServ
         the conversation history to determine what they are asking about,
         then generate the appropriate SQL."
 
+        [GREETINGS]
+        Q: Hello
+        A: Hello! I can help you with sales data questions — ask me about orders, customers, products, or revenue.
+
+        Q: Hi, what can you do?
+        A: Hi! I can answer questions about your sales data. Try asking about orders, customer revenue, product categories, or anything related to your sales database.
+
         ══════════════════════════════════════════
         RETURN CANNOT_ANSWER WHEN:
         ══════════════════════════════════════════
-        -Add exception: "Do NOT return CANNOT_ANSWER for greetings (hello, hi, hey,
-        good morning etc.). Instead return greting message and explain shortly politely how you can help"
         - Topic is outside Orders, Customers, Products, OrderItems
         - User asks to INSERT, UPDATE, DELETE, DROP, or modify any data
         - Query cannot be expressed as a safe SELECT against the schema above
         - The question is completely ambiguous even with conversation history
+
+        DO NOT return CANNOT_ANSWER for:
+        - Greetings (hello, hi, hey, good morning etc.) — instead respond with a
+          friendly greeting and briefly explain what you can help with
+        - Clarification questions — use conversation history to resolve them
+        - Follow-up questions with pronouns (them, those, their) — resolve from context
 
         ══════════════════════════════════════════
         RESULTS FORMATTING
@@ -332,50 +347,50 @@ public sealed class TextToSqlService(IDialClient dialClient, IQueryValidatorServ
         return messages;
     }
 
-    public async Task<string> FormatResultAsync(
-    string userQuestion,
-    QueryResult queryResult,
-    IReadOnlyList<ChatExchange> history,
-    CancellationToken cancellationToken = default)
-    {
-        var dataSummary = queryResult.RowCount == 0
-            ? "Query returned zero rows."
-            : BuildDataSummary(queryResult);
+    //public async Task<string> FormatResultAsync(
+    //string userQuestion,
+    //QueryResult queryResult,
+    //IReadOnlyList<ChatExchange> history,
+    //CancellationToken cancellationToken = default)
+    //{
+    //    var dataSummary = queryResult.RowCount == 0
+    //        ? "Query returned zero rows."
+    //        : BuildDataSummary(queryResult);
 
-        // CORRECT - fresh message list, no SQL in the thread
-        var messages = new List<DialChatMessage>
-        {
-            new("system", SystemPrompt),
-        };
+    //    // CORRECT - fresh message list, no SQL in the thread
+    //    var messages = new List<DialChatMessage>
+    //    {
+    //        new("system", SystemPrompt),
+    //    };
 
-        foreach (var exchange in history)
-        {
-            messages.Add(new DialChatMessage("user", exchange.UserMessage));
-            messages.Add(new DialChatMessage("assistant", exchange.AssistantMessage));
-        }
+    //    foreach (var exchange in history)
+    //    {
+    //        messages.Add(new DialChatMessage("user", exchange.UserMessage));
+    //        messages.Add(new DialChatMessage("assistant", exchange.AssistantMessage));
+    //    }
 
-        messages.Add(new DialChatMessage("user", $"Question: {userQuestion}\n\nResults:\n{dataSummary}"));
+    //    messages.Add(new DialChatMessage("user", $"Question: {userQuestion}\n\nResults:\n{dataSummary}"));
 
-        return await dialClient.GetChatCompletionAsync(messages, 0.3, cancellationToken);
-    }
+    //    return await dialClient.GetChatCompletionAsync(messages, 0.3, cancellationToken);
+    //}
 
-    private static string BuildDataSummary(QueryResult queryResult)
-    {
-        var builder = new StringBuilder();
-        builder.AppendLine($"Total rows returned: {queryResult.RowCount}");
-        builder.AppendLine($"Columns: {string.Join(", ", queryResult.ColumnNames)}");
-        builder.AppendLine();
+    //private static string BuildDataSummary(QueryResult queryResult)
+    //{
+    //    var builder = new StringBuilder();
+    //    builder.AppendLine($"Total rows returned: {queryResult.RowCount}");
+    //    builder.AppendLine($"Columns: {string.Join(", ", queryResult.ColumnNames)}");
+    //    builder.AppendLine();
 
-        var rowsToSend = queryResult.Rows.Take(1000).ToList();
-        builder.AppendLine($"Data ({rowsToSend.Count} of {queryResult.RowCount} rows):");
+    //    var rowsToSend = queryResult.Rows.Take(1000).ToList();
+    //    builder.AppendLine($"Data ({rowsToSend.Count} of {queryResult.RowCount} rows):");
 
-        var rowIndex = 1;
-        foreach (var row in rowsToSend)
-        {
-            builder.AppendLine($"Row {rowIndex}: {string.Join("; ", row.Select(kv => $"{kv.Key}={kv.Value}"))}");
-            rowIndex++;
-        }
+    //    var rowIndex = 1;
+    //    foreach (var row in rowsToSend)
+    //    {
+    //        builder.AppendLine($"Row {rowIndex}: {string.Join("; ", row.Select(kv => $"{kv.Key}={kv.Value}"))}");
+    //        rowIndex++;
+    //    }
 
-        return builder.ToString();
-    }
+    //    return builder.ToString();
+    //}
 }

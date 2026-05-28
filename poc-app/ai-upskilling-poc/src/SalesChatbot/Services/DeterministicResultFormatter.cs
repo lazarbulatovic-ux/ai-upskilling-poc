@@ -40,28 +40,60 @@ public sealed partial class DeterministicResultFormatter
         return $"{label}: {formatted}";
     }
 
-    private static string FormatTable(QueryResult queryResult)
+    //private static string FormatTable(QueryResult queryResult)
+    //{
+    //    var sb = new StringBuilder();
+    //    var columns = queryResult.ColumnNames;
+
+    //    // Header row
+    //    sb.Append('|');
+    //    foreach (var col in columns)
+    //    {
+    //        sb.Append($" {HumaniseHeader(col)} |");
+    //    }
+    //    sb.AppendLine();
+
+    //    // Separator row
+    //    sb.Append('|');
+    //    foreach (var _ in columns)
+    //    {
+    //        sb.Append("---|");
+    //    }
+    //    sb.AppendLine();
+
+    //    // Data rows — ALL rows, no Take()
+    //    foreach (var row in queryResult.Rows)
+    //    {
+    //        sb.Append('|');
+    //        foreach (var col in columns)
+    //        {
+    //            var val = row.TryGetValue(col, out var v) ? v : null;
+    //            sb.Append($" {FormatValue(col, val)} |");
+    //        }
+    //        sb.AppendLine();
+    //    }
+
+    //    return sb.ToString().TrimEnd();
+    //}
+
+    public static string FormatTable(QueryResult queryResult)
     {
         var sb = new StringBuilder();
         var columns = queryResult.ColumnNames;
 
-        // Header row
+        if (queryResult.RowCount >= 500)
+            sb.AppendLine($"> Showing 500 of {queryResult.RowCount}+ results. Try filtering further, e.g. *\"only show completed ones\"* or *\"only from last month\"*.\n");
+
         sb.Append('|');
         foreach (var col in columns)
-        {
             sb.Append($" {HumaniseHeader(col)} |");
-        }
         sb.AppendLine();
 
-        // Separator row
         sb.Append('|');
         foreach (var _ in columns)
-        {
             sb.Append("---|");
-        }
         sb.AppendLine();
 
-        // Data rows — ALL rows, no Take()
         foreach (var row in queryResult.Rows)
         {
             sb.Append('|');

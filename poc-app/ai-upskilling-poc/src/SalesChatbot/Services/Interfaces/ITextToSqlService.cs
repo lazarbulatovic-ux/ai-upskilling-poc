@@ -9,9 +9,9 @@ public interface ITextToSqlService
         IReadOnlyList<ChatExchange> history,
         CancellationToken cancellationToken = default);
 
-    Task<string> FormatResultAsync(
-        string userQuestion,
-        QueryResult queryResult,
-        IReadOnlyList<ChatExchange> history,
-        CancellationToken cancellationToken = default);
+    //Task<string> FormatResultAsync(
+    //    string userQuestion,
+    //    QueryResult queryResult,
+    //    IReadOnlyList<ChatExchange> history,
+    //    CancellationToken cancellationToken = default);
 }
