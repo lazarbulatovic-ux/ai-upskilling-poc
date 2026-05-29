@@ -31,6 +31,7 @@ User (Blazor UI)
   → DeterministicResultFormatter — formats rows to markdown table (pure C#, no LLM)
   → QueryAuditLog              — every query logged to database
 ```
+![SalesBot_Architecture](../docs/saleschatbot_architecture_optimised.jpg)
 
 **One LLM call per user question.**
 The second LLM call (ResultInterpreterService) was replaced with a deterministic
