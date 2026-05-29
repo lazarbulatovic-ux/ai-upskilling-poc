@@ -1,8 +1,7 @@
 # NL-to-SQL Sales Chatbot — PoC
 
 A conversational chatbot that lets non-technical users query a sales database
-in plain English. Built during the EPAM .NET AI Upskilling Programme (May 2026)
-using Spec-Driven Development with GitHub Spec Kit.
+in plain English. Built using Spec-Driven Development with GitHub Spec Kit.
 
 ---
 
