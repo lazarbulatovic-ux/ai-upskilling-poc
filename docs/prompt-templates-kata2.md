@@ -4,7 +4,7 @@
 **Author:** Lazar Bulatovic — Software Engineer
 **Project:** ai-upskilling-poc (NL-to-SQL Sales Chatbot)
 **Model:** Claude Sonnet (via EPAM DIAL)
-**DIAL location:** [paste your DIAL shared folder link here]
+**DIAL location:** **DIAL location:** chat.lab.epam.com/file-manager — uploaded to My Files as prompt-templates-kata2.md (Lazar Bulatovic, EPAM DIAL)
 **Committed location:** poc-app/ai-upskilling-poc/docs/prompt-templates-kata2.md
 
 ---
